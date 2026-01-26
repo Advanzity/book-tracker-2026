@@ -2,6 +2,11 @@
 #include <iomanip>
 #include <fstream>
 #include <string>
+#ifdef _DEBUG
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
+#endif
+
 using namespace std;
 
 // Enum for difficulty level
@@ -10,6 +15,16 @@ enum Difficulty {
     MEDIUM,
     HARD
 };
+
+// Convert difficulty to a label
+const char* difficultyToString(Difficulty d) {
+    switch (d) {
+    case EASY: return "Easy";
+    case MEDIUM: return "Medium";
+    case HARD: return "Hard";
+    default: return "Unknown";
+    }
+}
 
 // Struct to represent a book
 struct Book {
@@ -38,6 +53,67 @@ public:
     // Constructor
     BookTracker() {
         count = 0;
+    }
+
+    // Add a book without cin (test-friendly)
+    bool addBook(const Book& b) {
+        if (count >= MAX_BOOKS) {
+            return false;
+        }
+        if (!isNonEmpty(b.title)) {
+            return false;
+        }
+        if (b.pages <= 0) {
+            return false;
+        }
+        if (b.hours < 0) {
+            return false;
+        }
+        if (b.difficulty < EASY || b.difficulty > HARD) {
+            return false;
+        }
+        books[count] = b;
+        count++;
+        return true;
+    }
+
+    // Getters for tests/reports
+    int getBookCount() const {
+        return count;
+    }
+
+    double getTotalPages() const {
+        double totalPages = 0;
+        for (int i = 0; i < count; i++) {
+            totalPages += books[i].pages;
+        }
+        return totalPages;
+    }
+
+    double getTotalHours() const {
+        double totalHours = 0;
+        for (int i = 0; i < count; i++) {
+            totalHours += books[i].hours;
+        }
+        return totalHours;
+    }
+
+    double getAvgSpeed() const {
+        double totalHours = getTotalHours();
+        if (totalHours <= 0) {
+            return 0.0;
+        }
+        return getTotalPages() / totalHours;
+    }
+
+    int countByDifficulty(Difficulty d) const {
+        int total = 0;
+        for (int i = 0; i < count; i++) {
+            if (books[i].difficulty == d) {
+                total++;
+            }
+        }
+        return total;
     }
 
     // Display banner
@@ -126,18 +202,9 @@ public:
         cout << "Total books: " << count << "\n";
 
         // Calculate average pages per hour
-        double totalPages = 0;
-        double totalHours = 0;
-
-        for (int i = 0; i < count; i++) {
-            totalPages += books[i].pages;
-            totalHours += books[i].hours;
-        }
-
-        double avgSpeed = 0;
-        if (totalHours > 0) {
-            avgSpeed = totalPages / totalHours;
-        }
+        double totalPages = getTotalPages();
+        double totalHours = getTotalHours();
+        double avgSpeed = getAvgSpeed();
 
         cout << fixed << setprecision(1);
         cout << "Total hours: " << totalHours << "\n";
@@ -160,12 +227,7 @@ public:
         }
 
         // Give recommendation based on difficulty
-        int hardCount = 0;
-        for (int i = 0; i < count; i++) {
-            if (books[i].difficulty == HARD) {
-                hardCount++;
-            }
-        }
+        int hardCount = countByDifficulty(HARD);
 
         cout << "\n";
         if (hardCount > 0 && totalHours >= 10.0) {
@@ -255,8 +317,102 @@ public:
     }
 };
 
+#ifndef _DEBUG
 int main() {
     BookTracker tracker;
     tracker.run();
     return 0;
 }
+#endif
+
+#ifdef _DEBUG
+static Book makeBook(const string& title, int pages, double hours, Difficulty diff) {
+    Book b;
+    b.title = title;
+    b.pages = pages;
+    b.hours = hours;
+    b.difficulty = diff;
+    return b;
+}
+
+TEST_CASE("BookTracker starts empty") {
+    BookTracker tracker;
+    CHECK(tracker.getBookCount() == 0);
+    CHECK(tracker.getTotalPages() == 0);
+    CHECK(tracker.getTotalHours() == 0);
+    CHECK(tracker.getAvgSpeed() == doctest::Approx(0.0));
+}
+
+TEST_CASE("addBook accepts valid input") {
+    BookTracker tracker;
+    Book b = makeBook("C++ Primer", 500, 25.0, MEDIUM);
+    CHECK(tracker.addBook(b) == true);
+    CHECK(tracker.getBookCount() == 1);
+}
+
+TEST_CASE("Single book totals and average") {
+    BookTracker tracker;
+    tracker.addBook(makeBook("Solo Book", 150, 5.0, MEDIUM));
+    CHECK(tracker.getTotalPages() == 150);
+    CHECK(tracker.getTotalHours() == doctest::Approx(5.0));
+    CHECK(tracker.getAvgSpeed() == doctest::Approx(30.0));
+}
+
+TEST_CASE("addBook rejects invalid input") {
+    BookTracker tracker;
+    Book badPages = makeBook("Bad Pages", -10, 2.0, EASY);
+    Book badHours = makeBook("Bad Hours", 100, -1.0, EASY);
+    Book badTitle = makeBook("", 100, 2.0, EASY);
+    CHECK(tracker.addBook(badPages) == false);
+    CHECK(tracker.addBook(badHours) == false);
+    CHECK(tracker.addBook(badTitle) == false);
+    CHECK(tracker.getBookCount() == 0);
+}
+
+TEST_CASE("Total pages sums across books") {
+    BookTracker tracker;
+    tracker.addBook(makeBook("Book A", 120, 3.0, EASY));
+    tracker.addBook(makeBook("Book B", 180, 6.0, HARD));
+    CHECK(tracker.getTotalPages() == 300);
+}
+
+TEST_CASE("Total hours sums across books") {
+    BookTracker tracker;
+    tracker.addBook(makeBook("Book A", 120, 3.5, EASY));
+    tracker.addBook(makeBook("Book B", 180, 6.5, HARD));
+    CHECK(tracker.getTotalHours() == doctest::Approx(10.0));
+}
+
+TEST_CASE("Average speed uses total pages and hours") {
+    BookTracker tracker;
+    tracker.addBook(makeBook("Book A", 200, 10.0, EASY));
+    tracker.addBook(makeBook("Book B", 100, 5.0, MEDIUM));
+    CHECK(tracker.getAvgSpeed() == doctest::Approx(20.0));
+}
+
+TEST_CASE("Average speed guards divide by zero") {
+    BookTracker tracker;
+    tracker.addBook(makeBook("Book A", 100, 0.0, EASY));
+    CHECK(tracker.getAvgSpeed() == doctest::Approx(0.0));
+}
+
+TEST_CASE("Count by difficulty finds hard books") {
+    BookTracker tracker;
+    tracker.addBook(makeBook("Book A", 100, 2.0, HARD));
+    tracker.addBook(makeBook("Book B", 100, 2.0, EASY));
+    tracker.addBook(makeBook("Book C", 100, 2.0, HARD));
+    CHECK(tracker.countByDifficulty(HARD) == 2);
+}
+
+TEST_CASE("Difficulty label for EASY") {
+    CHECK(string(difficultyToString(EASY)) == "Easy");
+}
+
+TEST_CASE("Difficulty label for MEDIUM") {
+    CHECK(string(difficultyToString(MEDIUM)) == "Medium");
+}
+
+TEST_CASE("Difficulty label for HARD") {
+    CHECK(string(difficultyToString(HARD)) == "Hard");
+}
+#endif
