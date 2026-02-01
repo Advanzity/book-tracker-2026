@@ -1,0 +1,23 @@
+name: Run Unit Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install g++
+      run: sudo apt-get update && sudo apt-get install -y g++
+    
+    - name: Compile tests
+      run: g++ -std=c++17 -D_DEBUG -o test_runner week-1.cpp
+    
+    - name: Run tests
+      run: ./test_runner
