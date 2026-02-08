@@ -4,14 +4,18 @@
 
 ## Overview
 
-This C++ console program tracks books I read. It lets the user add books, view a formatted reading report, and save the report to a file. For Week 02, the project adds unit tests using doctest.
+This C++ console program tracks print and audio books. The code is structured with inheritance and composition:
+
+- Base class: `ReadingItem`
+- Derived classes: `PrintBook`, `AudioBook`
+- Composition class: `PriceInfo`
 
 ## Features
 
-- Add books with title, pages, hours, and difficulty (Easy/Medium/Hard)
-- View a formatted report with totals and average reading speed
+- Add print or audio books with title, pages, hours, difficulty, and pricing
+- Polymorphic report output (base + derived details)
 - Save the report to `report.txt`
-- Unit tests for calculations, enum logic, struct/array processing, and class methods
+- Unit tests for constructors, getters/setters, derived overrides, and composition helpers
 
 ## Build and Run
 
@@ -31,10 +35,10 @@ This project is set up for Visual Studio with Debug and Release configurations.
 
 Tests cover:
 
-- Calculations: totals and averages (guarded against divide-by-zero)
-- Enum decision logic: difficulty label and difficulty counts
-- Struct/array processing: processing the `Book` array
-- Class methods: non-interactive methods like `addBook`, `getTotalHours`, `getAvgSpeed`, etc.
+- Constructors initialize fields correctly
+- Getters/setters update fields
+- Derived classes call base behavior via overridden `print`
+- Composition class helper behavior
 
 The test code is compiled only when `_DEBUG` is defined.
 
@@ -46,5 +50,5 @@ The test code is compiled only when `_DEBUG` is defined.
 
 ## Notes
 
-- `MAX_BOOKS` is a `static const` to avoid magic numbers.
-- Class data stays private; tests use public getters and test-friendly methods.
+- `MAX_ITEMS` is a `static const` to avoid magic numbers.
+- Class data stays private/protected; tests use public getters and test-friendly methods.

@@ -1,7 +1,9 @@
-﻿#include <iostream>
+#include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <string>
+#include <sstream>
+#include <limits>
 #ifdef _DEBUG
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
@@ -26,210 +28,402 @@ const char* difficultyToString(Difficulty d) {
     }
 }
 
-// Struct to represent a book
-struct Book {
+// Base class
+class ReadingItem {
+protected:
     string title;
     int pages;
+    Difficulty difficulty;
     double hours;
-    Difficulty difficulty; // 1 2 3
+
+public:
+    ReadingItem()
+        : title("Untitled"), pages(0), difficulty(EASY), hours(0.0) {}
+
+    ReadingItem(const string& title, int pages, double hours, Difficulty difficulty)
+        : title(title), pages(pages), difficulty(difficulty), hours(hours) {}
+
+    virtual ~ReadingItem() = default;
+
+    void setTitle(const string& title) {
+        this->title = title;
+    }
+
+    string getTitle() const {
+        return title;
+    }
+
+    void setPages(int pages) {
+        this->pages = pages;
+    }
+
+    int getPages() const {
+        return pages;
+    }
+
+    void setHours(double hours) {
+        this->hours = hours;
+    }
+
+    double getHours() const {
+        return hours;
+    }
+
+    void setDifficulty(Difficulty difficulty) {
+        this->difficulty = difficulty;
+    }
+
+    Difficulty getDifficulty() const {
+        return difficulty;
+    }
+
+    virtual void print(ostream& os = cout) const {
+        os << "Title: " << title << "\n";
+        os << "Pages: " << pages << "\n";
+        os << "Hours: " << fixed << setprecision(1) << hours << "\n";
+        os << "Difficulty: " << difficultyToString(difficulty) << "\n";
+    }
+};
+
+// Composition class
+class PriceInfo {
+private:
+    double cost;
+    bool includedWithSubscription;
+
+public:
+    PriceInfo()
+        : cost(0.0), includedWithSubscription(false) {}
+
+    PriceInfo(double cost, bool includedWithSubscription)
+        : cost(cost), includedWithSubscription(includedWithSubscription) {}
+
+    void setCost(double cost) {
+        this->cost = cost;
+    }
+
+    double getCost() const {
+        return cost;
+    }
+
+    void setIncludedWithSubscription(bool includedWithSubscription) {
+        this->includedWithSubscription = includedWithSubscription;
+    }
+
+    bool getIncludedWithSubscription() const {
+        return includedWithSubscription;
+    }
+
+    bool isFree() const {
+        return cost <= 0.0 || includedWithSubscription;
+    }
+
+    string formattedCost() const {
+        if (isFree()) {
+            return "Free";
+        }
+
+        ostringstream oss;
+        oss << "$" << fixed << setprecision(2) << cost;
+        return oss.str();
+    }
+};
+
+// Derived class 1
+class PrintBook : public ReadingItem {
+private:
+    string author;
+    PriceInfo price;
+
+public:
+    PrintBook()
+        : ReadingItem(), author("Unknown"), price() {}
+
+    PrintBook(const string& title, int pages, double hours, Difficulty difficulty,
+        const string& author, const PriceInfo& price)
+        : ReadingItem(title, pages, hours, difficulty), author(author), price(price) {}
+
+    void setAuthor(const string& author) {
+        this->author = author;
+    }
+
+    string getAuthor() const {
+        return author;
+    }
+
+    void setPrice(const PriceInfo& price) {
+        this->price = price;
+    }
+
+    const PriceInfo& getPrice() const {
+        return price;
+    }
+
+    string displayName() const {
+        return title + " by " + author;
+    }
+
+    void print(ostream& os = cout) const override {
+        ReadingItem::print(os);
+        os << "Author: " << author << "\n";
+        os << "Cost: " << price.formattedCost() << "\n";
+    }
+};
+
+// Derived class 2
+class AudioBook : public ReadingItem {
+private:
+    string narrator;
+    PriceInfo price;
+
+public:
+    AudioBook()
+        : ReadingItem(), narrator("Unknown"), price() {}
+
+    AudioBook(const string& title, int pages, double hours, Difficulty difficulty,
+        const string& narrator, const PriceInfo& price)
+        : ReadingItem(title, pages, hours, difficulty), narrator(narrator), price(price) {}
+
+    void setNarrator(const string& narrator) {
+        this->narrator = narrator;
+    }
+
+    string getNarrator() const {
+        return narrator;
+    }
+
+    void setPrice(const PriceInfo& price) {
+        this->price = price;
+    }
+
+    const PriceInfo& getPrice() const {
+        return price;
+    }
+
+    string displayName() const {
+        return title + " (narrated by " + narrator + ")";
+    }
+
+    void print(ostream& os = cout) const override {
+        ReadingItem::print(os);
+        os << "Narrator: " << narrator << "\n";
+        os << "Cost: " << price.formattedCost() << "\n";
+    }
 };
 
 // BookTracker class
 class BookTracker {
 private:
-    static const int MAX_BOOKS = 5;
-    Book books[MAX_BOOKS];
+    static const int MAX_ITEMS = 5;
+    ReadingItem* items[MAX_ITEMS];
     int count;
 
-    /*
-    validation function (non-empty string) 
-     @string Takes a string reference
-    */
-    bool isNonEmpty(const string& s) {
+    bool isNonEmpty(const string& s) const {
         return !s.empty();
     }
 
-public:
-    // Constructor
-    BookTracker() {
-        count = 0;
+    string readLine(const string& prompt) {
+        string value;
+        cout << prompt;
+        getline(cin >> ws, value);
+        while (!isNonEmpty(value)) {
+            cout << "Input cannot be empty. Try again: ";
+            getline(cin >> ws, value);
+        }
+        return value;
     }
 
-    // Add a book without cin (test-friendly)
-    bool addBook(const Book& b) {
-        if (count >= MAX_BOOKS) {
+    int readPositiveInt(const string& prompt) {
+        int value;
+        while (true) {
+            cout << prompt;
+            if (cin >> value && value > 0) {
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                return value;
+            }
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid! Enter a positive number.\n";
+        }
+    }
+
+    double readNonNegativeDouble(const string& prompt) {
+        double value;
+        while (true) {
+            cout << prompt;
+            if (cin >> value && value >= 0.0) {
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                return value;
+            }
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid! Enter a non-negative number.\n";
+        }
+    }
+
+    int readChoice(const string& prompt, int minValue, int maxValue) {
+        int value;
+        while (true) {
+            cout << prompt;
+            if (cin >> value && value >= minValue && value <= maxValue) {
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                return value;
+            }
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid! Enter a number between " << minValue << " and " << maxValue << ".\n";
+        }
+    }
+
+    Difficulty readDifficulty() {
+        cout << "\nDifficulty:\n";
+        cout << "1. Easy\n";
+        cout << "2. Medium\n";
+        cout << "3. Hard\n";
+        int choice = readChoice("Choose (1-3): ", 1, 3);
+        return static_cast<Difficulty>(choice);
+    }
+
+    PriceInfo readPriceInfo() {
+        double cost = readNonNegativeDouble("Cost (0 for free): ");
+        int included = readChoice("Included with subscription? (1=Yes, 2=No): ", 1, 2);
+        return PriceInfo(cost, included == 1);
+    }
+
+    void addPrintBook() {
+        if (count >= MAX_ITEMS) {
+            cout << "\nCannot add more items!\n";
+            return;
+        }
+
+        cout << "\n--- Add Print Book ---\n";
+        string title = readLine("Title: ");
+        int pages = readPositiveInt("Pages: ");
+        double hours = readNonNegativeDouble("Hours spent: ");
+        Difficulty difficulty = readDifficulty();
+        string author = readLine("Author: ");
+        PriceInfo price = readPriceInfo();
+
+        if (addItem(new PrintBook(title, pages, hours, difficulty, author, price))) {
+            cout << "\nPrint book added!\n";
+        }
+    }
+
+    void addAudioBook() {
+        if (count >= MAX_ITEMS) {
+            cout << "\nCannot add more items!\n";
+            return;
+        }
+
+        cout << "\n--- Add Audio Book ---\n";
+        string title = readLine("Title: ");
+        int pages = readPositiveInt("Pages (or length in pages): ");
+        double hours = readNonNegativeDouble("Hours listened: ");
+        Difficulty difficulty = readDifficulty();
+        string narrator = readLine("Narrator: ");
+        PriceInfo price = readPriceInfo();
+
+        if (addItem(new AudioBook(title, pages, hours, difficulty, narrator, price))) {
+            cout << "\nAudio book added!\n";
+        }
+    }
+
+public:
+    BookTracker()
+        : count(0) {
+        for (int i = 0; i < MAX_ITEMS; i++) {
+            items[i] = nullptr;
+        }
+    }
+
+    ~BookTracker() {
+        for (int i = 0; i < count; i++) {
+            delete items[i];
+            items[i] = nullptr;
+        }
+    }
+
+    bool addItem(ReadingItem* item) {
+        if (item == nullptr || count >= MAX_ITEMS) {
+            delete item;
             return false;
         }
-        if (!isNonEmpty(b.title)) {
-            return false;
-        }
-        if (b.pages <= 0) {
-            return false;
-        }
-        if (b.hours < 0) {
-            return false;
-        }
-        if (b.difficulty < EASY || b.difficulty > HARD) {
-            return false;
-        }
-        books[count] = b;
+        items[count] = item;
         count++;
         return true;
     }
 
-    // Getters for tests/reports
-    int getBookCount() const {
+    int getItemCount() const {
         return count;
     }
 
-    double getTotalPages() const {
-        double totalPages = 0;
+    int getTotalPages() const {
+        int totalPages = 0;
         for (int i = 0; i < count; i++) {
-            totalPages += books[i].pages;
+            totalPages += items[i]->getPages();
         }
         return totalPages;
     }
 
     double getTotalHours() const {
-        double totalHours = 0;
+        double totalHours = 0.0;
         for (int i = 0; i < count; i++) {
-            totalHours += books[i].hours;
+            totalHours += items[i]->getHours();
         }
         return totalHours;
     }
 
     double getAvgSpeed() const {
         double totalHours = getTotalHours();
-        if (totalHours <= 0) {
+        if (totalHours <= 0.0) {
             return 0.0;
         }
-        return getTotalPages() / totalHours;
+        return static_cast<double>(getTotalPages()) / totalHours;
     }
 
     int countByDifficulty(Difficulty d) const {
         int total = 0;
         for (int i = 0; i < count; i++) {
-            if (books[i].difficulty == d) {
+            if (items[i]->getDifficulty() == d) {
                 total++;
             }
         }
         return total;
     }
 
-    // Display banner
-    void showBanner() {
+    void showBanner() const {
         cout << "\n================================\n";
         cout << "   DAVID'S BOOK TRACKER 2026\n";
         cout << "=================================\n\n";
     }
 
-    // Display menu
-    void showMenu() {
+    void showMenu() const {
         cout << "\n--- MENU ---\n";
-        cout << "1. Add Book\n";
-        cout << "2. View Report\n";
-        cout << "3. Save Report to File\n";
-        cout << "4. Exit\n";             
+        cout << "1. Add Print Book\n";
+        cout << "2. Add Audio Book\n";
+        cout << "3. View Report\n";
+        cout << "4. Save Report to File\n";
+        cout << "5. Exit\n";
         cout << "Choice: ";
     }
 
-    // Add a book
-    void addBook() {
-        if (count >= MAX_BOOKS) {
-            cout << "\nCannot add more books!\n";
-            return;
-        }
-
-        cout << "\n--- Add Book ---\n";
-
-        cin.ignore();
-
-        // Get title (string with spaces)
-        cout << "Title: ";
-        getline(cin, books[count].title);
-
-        // todo: implement isNonEmpty(&str)
-        while (!isNonEmpty(books[count].title)) {
-            cout << "Title cannot be empty. Try again: ";
-            getline(cin, books[count].title);
-        }
-
-        // not stored in struct (yet)
-
-        // Get pages (int)
-        cout << "Total pages: ";
-        while (!(cin >> books[count].pages) || books[count].pages <= 0) {
-            cin.clear();
-            cin.ignore(1000, '\n');
-            cout << "Invalid! Enter a positive number: ";
-        }
-
-        // Get hours (double)
-        cout << "Hours spent: ";
-        while (!(cin >> books[count].hours) || books[count].hours < 0) {
-            cin.clear();
-            cin.ignore(1000, '\n');
-            cout << "Invalid! Enter a non-negative number: ";
-        }
-
-        // Get difficulty for the book
-        int choice;
-        cout << "\nDifficulty:\n";
-        cout << "1. Easy\n";
-        cout << "2. Medium\n";
-        cout << "3. Hard\n";
-        cout << "Choose (1-3): ";
-
-        while (!(cin >> choice) || choice < 1 || choice > 3) {
-            cin.clear();
-            cin.ignore(1000, '\n');
-            cout << "Invalid! Enter 1-3: ";
-        }
-        books[count].difficulty = static_cast<Difficulty>(choice);
-
-        count++;
-        cout << "\nBook added!\n";
-    }
-
-    // Show report
     void showReport() const {
         if (count == 0) {
-            cout << "\nNo books yet!\n";
+            cout << "\nNo items yet!\n";
             return;
         }
 
         cout << "\n--- Reading Report ---\n";
-        cout << "Total books: " << count << "\n";
+        cout << "Total items: " << count << "\n";
 
-        // Calculate average pages per hour
-        double totalPages = getTotalPages();
         double totalHours = getTotalHours();
         double avgSpeed = getAvgSpeed();
 
         cout << fixed << setprecision(1);
         cout << "Total hours: " << totalHours << "\n";
-        cout << "Avg speed " << avgSpeed << " pages/hour\n\n";
+        cout << "Avg speed: " << avgSpeed << " pages/hour\n";
 
-        // Show books in table
-        // 10 + 8 + 20 = 38
-        // ---- ---- --- --- --- ---
-
-        cout << left << setw(20) << "Title"
-            << right << setw(8) << "Pages"
-            << setw(10) << "Hours" << "\n";
-        cout << string(38, '-') << "\n";
-
-        for (int i = 0; i < count; i++) {
-            cout << left << setw(20) << books[i].title
-                << right << setw(8) << books[i].pages
-                << setw(10) << fixed << setprecision(1)
-                << books[i].hours << "\n";
-        }
-
-        // Give recommendation based on difficulty
         int hardCount = countByDifficulty(HARD);
-
-        cout << "\n";
         if (hardCount > 0 && totalHours >= 10.0) {
             cout << "Nice, reading hard books!\n";
         }
@@ -237,18 +431,14 @@ public:
             cout << "Try a harder book next!\n";
         }
 
-        if (avgSpeed >= 20.0 && totalHours >= 5.0) {
-            cout << "Your speed is good stay consistent\n";
-        }
-        else if (avgSpeed < 10.0 && totalHours >= 5.0) {
-            cout << "Read in smaller sessions.\n";
-        }
-        else {
-            cout << "Keep tracking.\n";
+        cout << "\n--- Items ---\n";
+        for (int i = 0; i < count; i++) {
+            cout << "\nItem " << (i + 1) << ":\n";
+            items[i]->print(cout);
         }
     }
 
-    void saveToFile() {
+    void saveToFile() const {
         ofstream file("report.txt");
 
         if (!file) {
@@ -258,62 +448,51 @@ public:
 
         file << "BOOK TRACKER REPORT\n";
         file << "===================\n\n";
-        file << "Total books: " << count << "\n\n";
-
-        file << left << setw(20) << "Title"
-            << right << setw(8) << "Pages"
-            << setw(10) << "Hours" << "\n";
-        file << string(38, '-') << "\n";
+        file << "Total items: " << count << "\n\n";
 
         for (int i = 0; i < count; i++) {
-            file << left << setw(20) << books[i].title.substr(0, 19)
-                << right << setw(8) << books[i].pages
-                << setw(10) << fixed << setprecision(1)
-                << books[i].hours << "\n";
+            file << "Item " << (i + 1) << ":\n";
+            items[i]->print(file);
+            file << "\n";
         }
 
         file.close();
         cout << "Report saved to report.txt\n";
     }
 
-    // Main program loop
     void run() {
         showBanner();
 
         int choice = 0;
-
-        // Do-while loop
         do {
             showMenu();
-
-            // While loop for validation
             while (!(cin >> choice)) {
                 cin.clear();
-                //cin.ignore(1000);
-                cin.ignore(1000, '\n');
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 cout << "Invalid! Enter a number: ";
             }
 
-            // Switch statement
             switch (choice) {
             case 1:
-                addBook();
+                addPrintBook();
                 break;
             case 2:
+                addAudioBook();
+                break;
+            case 3:
                 showReport();
                 break;
-            case 3:            
+            case 4:
                 saveToFile();
                 break;
-            case 4:            
+            case 5:
                 cout << "\nHappy reading!\n\n";
                 break;
             default:
                 cout << "\nInvalid choice!\n";
             }
 
-        } while (choice != 4); 
-
+        } while (choice != 5);
     }
 };
 
@@ -326,93 +505,72 @@ int main() {
 #endif
 
 #ifdef _DEBUG
-static Book makeBook(const string& title, int pages, double hours, Difficulty diff) {
-    Book b;
-    b.title = title;
-    b.pages = pages;
-    b.hours = hours;
-    b.difficulty = diff;
-    return b;
+TEST_CASE("ReadingItem constructor initializes fields") {
+    ReadingItem item("C++ Primer", 500, 25.0, MEDIUM);
+    CHECK(item.getTitle() == "C++ Primer");
+    CHECK(item.getPages() == 500);
+    CHECK(item.getHours() == doctest::Approx(25.0));
+    CHECK(item.getDifficulty() == MEDIUM);
 }
 
-TEST_CASE("BookTracker starts empty") {
-    BookTracker tracker;
-    CHECK(tracker.getBookCount() == 0);
-    CHECK(tracker.getTotalPages() == 0);
-    CHECK(tracker.getTotalHours() == 0);
-    CHECK(tracker.getAvgSpeed() == doctest::Approx(0.0));
+TEST_CASE("ReadingItem setters update fields") {
+    ReadingItem item;
+    item.setTitle("Refactoring");
+    item.setPages(350);
+    item.setHours(12.5);
+    item.setDifficulty(HARD);
+
+    CHECK(item.getTitle() == "Refactoring");
+    CHECK(item.getPages() == 350);
+    CHECK(item.getHours() == doctest::Approx(12.5));
+    CHECK(item.getDifficulty() == HARD);
 }
 
-TEST_CASE("addBook accepts valid input") {
-    BookTracker tracker;
-    Book b = makeBook("C++ Primer", 500, 25.0, MEDIUM);
-    CHECK(tracker.addBook(b) == true);
-    CHECK(tracker.getBookCount() == 1);
+TEST_CASE("PriceInfo helper behavior") {
+    PriceInfo freeItem(0.0, false);
+    PriceInfo paidItem(9.99, false);
+    PriceInfo subscriptionItem(12.00, true);
+
+    CHECK(freeItem.isFree() == true);
+    CHECK(paidItem.isFree() == false);
+    CHECK(subscriptionItem.isFree() == true);
+    CHECK(paidItem.formattedCost() == "$9.99");
 }
 
-TEST_CASE("Single book totals and average") {
-    BookTracker tracker;
-    tracker.addBook(makeBook("Solo Book", 150, 5.0, MEDIUM));
-    CHECK(tracker.getTotalPages() == 150);
-    CHECK(tracker.getTotalHours() == doctest::Approx(5.0));
-    CHECK(tracker.getAvgSpeed() == doctest::Approx(30.0));
+TEST_CASE("PrintBook constructor and getters") {
+    PriceInfo price(14.50, false);
+    PrintBook book("Dune", 600, 20.0, HARD, "Frank Herbert", price);
+
+    CHECK(book.getTitle() == "Dune");
+    CHECK(book.getPages() == 600);
+    CHECK(book.getAuthor() == "Frank Herbert");
+    CHECK(book.getPrice().getCost() == doctest::Approx(14.50));
+    CHECK(book.displayName() == "Dune by Frank Herbert");
 }
 
-TEST_CASE("addBook rejects invalid input") {
-    BookTracker tracker;
-    Book badPages = makeBook("Bad Pages", -10, 2.0, EASY);
-    Book badHours = makeBook("Bad Hours", 100, -1.0, EASY);
-    Book badTitle = makeBook("", 100, 2.0, EASY);
-    CHECK(tracker.addBook(badPages) == false);
-    CHECK(tracker.addBook(badHours) == false);
-    CHECK(tracker.addBook(badTitle) == false);
-    CHECK(tracker.getBookCount() == 0);
+TEST_CASE("AudioBook constructor and getters") {
+    PriceInfo price(0.0, true);
+    AudioBook book("Project Hail Mary", 496, 18.0, MEDIUM, "Ray Porter", price);
+
+    CHECK(book.getTitle() == "Project Hail Mary");
+    CHECK(book.getPages() == 496);
+    CHECK(book.getNarrator() == "Ray Porter");
+    CHECK(book.getPrice().isFree() == true);
+    CHECK(book.displayName() == "Project Hail Mary (narrated by Ray Porter)");
 }
 
-TEST_CASE("Total pages sums across books") {
-    BookTracker tracker;
-    tracker.addBook(makeBook("Book A", 120, 3.0, EASY));
-    tracker.addBook(makeBook("Book B", 180, 6.0, HARD));
-    CHECK(tracker.getTotalPages() == 300);
-}
+TEST_CASE("Derived print includes base fields") {
+    PriceInfo price(12.00, false);
+    PrintBook book("Dune", 500, 15.0, HARD, "Frank Herbert", price);
 
-TEST_CASE("Total hours sums across books") {
-    BookTracker tracker;
-    tracker.addBook(makeBook("Book A", 120, 3.5, EASY));
-    tracker.addBook(makeBook("Book B", 180, 6.5, HARD));
-    CHECK(tracker.getTotalHours() == doctest::Approx(10.0));
-}
+    ostringstream oss;
+    book.print(oss);
 
-TEST_CASE("Average speed uses total pages and hours") {
-    BookTracker tracker;
-    tracker.addBook(makeBook("Book A", 200, 10.0, EASY));
-    tracker.addBook(makeBook("Book B", 100, 5.0, MEDIUM));
-    CHECK(tracker.getAvgSpeed() == doctest::Approx(20.0));
-}
-
-TEST_CASE("Average speed guards divide by zero") {
-    BookTracker tracker;
-    tracker.addBook(makeBook("Book A", 100, 0.0, EASY));
-    CHECK(tracker.getAvgSpeed() == doctest::Approx(0.0));
-}
-
-TEST_CASE("Count by difficulty finds hard books") {
-    BookTracker tracker;
-    tracker.addBook(makeBook("Book A", 100, 2.0, HARD));
-    tracker.addBook(makeBook("Book B", 100, 2.0, EASY));
-    tracker.addBook(makeBook("Book C", 100, 2.0, HARD));
-    CHECK(tracker.countByDifficulty(HARD) == 2);
-}
-
-TEST_CASE("Difficulty label for EASY") {
-    CHECK(string(difficultyToString(EASY)) == "Easy");
-}
-
-TEST_CASE("Difficulty label for MEDIUM") {
-    CHECK(string(difficultyToString(MEDIUM)) == "Medium");
-}
-
-TEST_CASE("Difficulty label for HARD") {
-    CHECK(string(difficultyToString(HARD)) == "Hard");
+    string output = oss.str();
+    CHECK(output.find("Title: Dune") != string::npos);
+    CHECK(output.find("Pages: 500") != string::npos);
+    CHECK(output.find("Difficulty: Hard") != string::npos);
+    CHECK(output.find("Author: Frank Herbert") != string::npos);
+    CHECK(output.find("Cost: $12.00") != string::npos);
 }
 #endif
