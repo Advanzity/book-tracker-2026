@@ -35,6 +35,108 @@ const char *difficultyToString(Difficulty d)
     }
 }
 
+// Function template used by manager calculations
+template <typename T>
+T safeDivide(T numerator, T denominator)
+{
+    if (denominator == static_cast<T>(0))
+    {
+        return static_cast<T>(0);
+    }
+    return numerator / denominator;
+}
+
+// Class template that replaces raw dynamic array logic
+template <typename T>
+class DynamicArray
+{
+private:
+    T *data;
+    int count;
+    int capacity;
+
+    void resize()
+    {
+        int newCapacity = capacity * 2;
+        T *newData = new T[newCapacity];
+
+        for (int i = 0; i < count; i++)
+        {
+            newData[i] = data[i];
+        }
+
+        delete[] data;
+        data = newData;
+        capacity = newCapacity;
+    }
+
+public:
+    DynamicArray(int initialCapacity = 2)
+        : count(0), capacity(initialCapacity > 0 ? initialCapacity : 2)
+    {
+        data = new T[capacity];
+    }
+
+    ~DynamicArray()
+    {
+        delete[] data;
+    }
+
+    int getCount() const
+    {
+        return count;
+    }
+
+    int getCapacity() const
+    {
+        return capacity;
+    }
+
+    void add(const T &item)
+    {
+        if (count == capacity)
+        {
+            resize();
+        }
+        data[count] = item;
+        count++;
+    }
+
+    bool removeAt(int index, T &removedItem)
+    {
+        if (index < 0 || index >= count)
+        {
+            return false;
+        }
+
+        removedItem = data[index];
+        for (int i = index; i < count - 1; i++)
+        {
+            data[i] = data[i + 1];
+        }
+
+        data[count - 1] = T();
+        count--;
+        return true;
+    }
+
+    bool tryGet(int index, T &item) const
+    {
+        if (index < 0 || index >= count)
+        {
+            return false;
+        }
+
+        item = data[index];
+        return true;
+    }
+
+    T getAt(int index) const
+    {
+        return data[index];
+    }
+};
+
 // Base class
 class ReadingItem
 {
@@ -96,12 +198,26 @@ public:
     // Pure virtual function
     virtual string displayName() const = 0;
 
+    virtual void toStream(ostream &os) const
+    {
+        os << displayName()
+           << " | pages: " << pages
+           << " | hours: " << fixed << setprecision(1) << hours
+           << " | difficulty: " << difficultyToString(difficulty);
+    }
+
     virtual void print(ostream &os = cout) const
     {
         os << "Title: " << title << "\n";
         os << "Pages: " << pages << "\n";
         os << "Hours: " << fixed << setprecision(1) << hours << "\n";
         os << "Difficulty: " << difficultyToString(difficulty) << "\n";
+    }
+
+    friend ostream &operator<<(ostream &os, const ReadingItem &item)
+    {
+        item.toStream(os);
+        return os;
     }
 };
 
@@ -181,7 +297,7 @@ public:
     {
         return author;
     }
-
+ 
     void setPrice(const PriceInfo &price)
     {
         this->price = price;
@@ -192,9 +308,23 @@ public:
         return price;
     }
 
+    bool operator==(const PrintBook &other) const
+    {
+        return this->title == other.title && this->author == other.author;
+    }
+
     string displayName() const override
     {
         return title + " by " + author;
+    }
+
+    void toStream(ostream &os) const override
+    {
+        os << "PrintBook: " << displayName()
+           << " | pages: " << pages
+           << " | hours: " << fixed << setprecision(1) << hours
+           << " | difficulty: " << difficultyToString(difficulty)
+           << " | cost: " << price.formattedCost();
     }
 
     void print(ostream &os = cout) const override
@@ -245,6 +375,15 @@ public:
         return title + " (narrated by " + narrator + ")";
     }
 
+    void toStream(ostream &os) const override
+    {
+        os << "AudioBook: " << displayName()
+           << " | pages: " << pages
+           << " | hours: " << fixed << setprecision(1) << hours
+           << " | difficulty: " << difficultyToString(difficulty)
+           << " | cost: " << price.formattedCost();
+    }
+
     void print(ostream &os = cout) const override
     {
         ReadingItem::print(os);
@@ -257,9 +396,7 @@ public:
 class Manager
 {
 private:
-    ReadingItem **items;
-    int count;
-    int capacity;
+    DynamicArray<ReadingItem *> items;
 
     bool isNonEmpty(const string &s) const
     {
@@ -377,19 +514,19 @@ private:
 
     void removeItemUI()
     {
-        if (count == 0)
+        if (isEmpty())
         {
             cout << "\nNo items to remove!\n";
             return;
         }
 
         cout << "\n--- Remove Item ---\n";
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            cout << (i + 1) << ". " << items[i]->displayName() << "\n";
+            cout << (i + 1) << ". " << items.getAt(i)->displayName() << "\n";
         }
 
-        int index = readChoice("Select item to remove (0 to cancel): ", 0, count);
+        int index = readChoice("Select item to remove (0 to cancel): ", 0, getItemCount());
         if (index > 0)
         {
             removeItem(index - 1);
@@ -397,83 +534,76 @@ private:
         }
     }
 
-    void resize()
-    {
-        int newCapacity = capacity * 2;
-        ReadingItem **newItems = new ReadingItem *[newCapacity];
-
-        for (int i = 0; i < count; i++)
-        {
-            newItems[i] = items[i];
-        }
-
-        delete[] items;
-        items = newItems;
-        capacity = newCapacity;
-        cout << "\n(Array resized to " << capacity << ")\n";
-    }
-
 public:
-    Manager()
-        : count(0), capacity(2)
-    {
-        items = new ReadingItem *[capacity];
-    }
+    Manager() = default;
 
     ~Manager()
     {
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            delete items[i];
+            delete items.getAt(i);
         }
-        delete[] items;
+    }
+
+    bool isEmpty() const
+    {
+        return this->getItemCount() == 0;
+    }
+
+    Manager &operator+=(ReadingItem *item)
+    {
+        items.add(item);
+        return *this;
+    }
+
+    Manager &operator-=(int index)
+    {
+        ReadingItem *removedItem = nullptr;
+        if (items.removeAt(index, removedItem))
+        {
+            delete removedItem;
+        }
+        return *this;
+    }
+
+    ReadingItem *operator[](int index) const
+    {
+        ReadingItem *item = nullptr;
+        if (items.tryGet(index, item))
+        {
+            return item;
+        }
+        return nullptr;
     }
 
     void addItem(ReadingItem *item)
     {
-        if (count == capacity)
-        {
-            resize();
-        }
-        items[count] = item;
-        count++;
+        *this += item;
     }
 
     bool removeItem(int index)
     {
-        if (index < 0 || index >= count)
-        {
-            return false;
-        }
-
-        delete items[index];
-
-        for (int i = index; i < count - 1; i++)
-        {
-            items[i] = items[i + 1];
-        }
-
-        items[count - 1] = nullptr;
-        count--;
-        return true;
+        int before = getItemCount();
+        *this -= index;
+        return getItemCount() < before;
     }
 
     int getItemCount() const
     {
-        return count;
+        return items.getCount();
     }
 
     int getCapacity() const
     {
-        return capacity;
+        return items.getCapacity();
     }
 
     int getTotalPages() const
     {
         int totalPages = 0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            totalPages += items[i]->getPages();
+            totalPages += items.getAt(i)->getPages();
         }
         return totalPages;
     }
@@ -481,29 +611,24 @@ public:
     double getTotalHours() const
     {
         double totalHours = 0.0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            totalHours += items[i]->getHours();
+            totalHours += items.getAt(i)->getHours();
         }
         return totalHours;
     }
 
     double getAvgSpeed() const
     {
-        double totalHours = getTotalHours();
-        if (totalHours <= 0.0)
-        {
-            return 0.0;
-        }
-        return static_cast<double>(getTotalPages()) / totalHours;
+        return safeDivide(static_cast<double>(getTotalPages()), getTotalHours());
     }
 
     int countByDifficulty(Difficulty d) const
     {
         int total = 0;
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            if (items[i]->getDifficulty() == d)
+            if (items.getAt(i)->getDifficulty() == d)
             {
                 total++;
             }
@@ -532,14 +657,14 @@ public:
 
     void showReport() const
     {
-        if (count == 0)
+        if (isEmpty())
         {
             cout << "\nNo items yet!\n";
             return;
         }
 
         cout << "\n--- Reading Report ---\n";
-        cout << "Total items: " << count << " (Capacity: " << capacity << ")\n";
+        cout << "Total items: " << getItemCount() << " (Capacity: " << getCapacity() << ")\n";
 
         double totalHours = getTotalHours();
         double avgSpeed = getAvgSpeed();
@@ -553,16 +678,16 @@ public:
         {
             cout << "Nice, reading hard books!\n";
         }
-        else if (hardCount == 0 && count >= 2)
+        else if (hardCount == 0 && getItemCount() >= 2)
         {
             cout << "Try a harder book next!\n";
         }
 
         cout << "\n--- Items ---\n";
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            cout << "\nItem " << (i + 1) << ": " << items[i]->displayName() << "\n";
-            items[i]->print(cout);
+            cout << "\nItem " << (i + 1) << ": " << items.getAt(i)->displayName() << "\n";
+            items.getAt(i)->print(cout);
         }
     }
 
@@ -578,12 +703,12 @@ public:
 
         file << "BOOK TRACKER REPORT\n";
         file << "===================\n\n";
-        file << "Total items: " << count << "\n\n";
+        file << "Total items: " << getItemCount() << "\n\n";
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < getItemCount(); i++)
         {
-            file << "Item " << (i + 1) << ": " << items[i]->displayName() << "\n";
-            items[i]->print(file);
+            file << "Item " << (i + 1) << ": " << items.getAt(i)->displayName() << "\n";
+            items.getAt(i)->print(file);
             file << "\n";
         }
 
@@ -674,6 +799,138 @@ TEST_CASE("AudioBook (Derived) constructor and getters")
     CHECK(book.displayName() == "Project Hail Mary (narrated by Ray Porter)");
 }
 
+TEST_CASE("PrintBook operator== true when identity fields match")
+{
+    PriceInfo regular(18.00, false);
+    PriceInfo sale(0.0, true);
+    PrintBook left("Dune", 600, 20.0, HARD, "Frank Herbert", regular);
+    PrintBook right("Dune", 450, 15.0, MEDIUM, "Frank Herbert", sale);
+
+    CHECK(left == right);
+}
+
+TEST_CASE("PrintBook operator== false when identity fields differ")
+{
+    PriceInfo price(18.00, false);
+    PrintBook left("Dune", 600, 20.0, HARD, "Frank Herbert", price);
+    PrintBook right("Dune", 600, 20.0, HARD, "Someone Else", price);
+
+    CHECK_FALSE(left == right);
+}
+
+TEST_CASE("operator<< outputs one-line PrintBook summary via base reference")
+{
+    PriceInfo price(14.50, false);
+    PrintBook book("Dune", 600, 20.0, HARD, "Frank Herbert", price);
+
+    ostringstream oss;
+    ReadingItem &item = book;
+    oss << item;
+
+    CHECK(oss.str() == "PrintBook: Dune by Frank Herbert | pages: 600 | hours: 20.0 | difficulty: Hard | cost: $14.50");
+}
+
+TEST_CASE("operator<< outputs one-line AudioBook summary via base reference")
+{
+    PriceInfo price(0.0, true);
+    AudioBook book("Project Hail Mary", 496, 18.0, MEDIUM, "Ray Porter", price);
+
+    ostringstream oss;
+    ReadingItem &item = book;
+    oss << item;
+
+    CHECK(oss.str() == "AudioBook: Project Hail Mary (narrated by Ray Porter) | pages: 496 | hours: 18.0 | difficulty: Medium | cost: Free");
+}
+
+TEST_CASE("Manager operator[] valid index returns correct item")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    ReadingItem *first = new PrintBook("Book 1", 100, 5.0, EASY, "Author 1", price);
+    manager += first;
+
+    CHECK(manager[0] == first);
+}
+
+TEST_CASE("Manager operator[] invalid index returns nullptr")
+{
+    Manager manager;
+    CHECK(manager[-1] == nullptr);
+    CHECK(manager[0] == nullptr);
+}
+
+TEST_CASE("Manager operator+= adds an item pointer")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    ReadingItem *first = new PrintBook("Book 1", 100, 5.0, EASY, "Author 1", price);
+
+    manager += first;
+
+    CHECK(manager.getItemCount() == 1);
+    CHECK(manager[0] == first);
+}
+
+TEST_CASE("Manager operator-= removes and shifts remaining items")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    ReadingItem *first = new PrintBook("Book 1", 100, 5.0, EASY, "Author 1", price);
+    ReadingItem *second = new PrintBook("Book 2", 200, 10.0, MEDIUM, "Author 2", price);
+    ReadingItem *third = new PrintBook("Book 3", 300, 15.0, HARD, "Author 3", price);
+
+    manager += first;
+    manager += second;
+    manager += third;
+    manager -= 1;
+
+    CHECK(manager.getItemCount() == 2);
+    CHECK(manager[0] == first);
+    CHECK(manager[1] == third);
+}
+
+TEST_CASE("Function template safeDivide works with int")
+{
+    CHECK(safeDivide(12, 3) == 4);
+    CHECK(safeDivide(12, 0) == 0);
+}
+
+TEST_CASE("Function template safeDivide works with double")
+{
+    CHECK(safeDivide(9.0, 4.5) == doctest::Approx(2.0));
+    CHECK(safeDivide(5.0, 0.0) == doctest::Approx(0.0));
+}
+
+TEST_CASE("Class template DynamicArray stores values and resizes")
+{
+    DynamicArray<int> values(1);
+    values.add(10);
+    values.add(20);
+
+    int stored = 0;
+    CHECK(values.getCount() == 2);
+    CHECK(values.getCapacity() == 2);
+    CHECK(values.tryGet(1, stored) == true);
+    CHECK(stored == 20);
+}
+
+TEST_CASE("Class template DynamicArray removes values and shifts")
+{
+    DynamicArray<int> values(2);
+    values.add(5);
+    values.add(10);
+    values.add(15);
+
+    int removed = 0;
+    int shifted = 0;
+
+    CHECK(values.removeAt(1, removed) == true);
+    CHECK(removed == 10);
+    CHECK(values.getCount() == 2);
+    CHECK(values.tryGet(1, shifted) == true);
+    CHECK(shifted == 15);
+}
+
 TEST_CASE("Polymorphism via Base Pointer")
 {
     PriceInfo price(10.0, false);
@@ -723,11 +980,8 @@ TEST_CASE("Manager removes items")
 
     CHECK(removed == true);
     CHECK(manager.getItemCount() == 2);
-
-    // Verify shift (Book 3 should now be at index 1 effectively, though not directly exposed by index accessor in public API)
-    // We can infer by total pages or similar if we had a getter for specific item, but we have aggregated getters.
-    // Total pages should be 100 + 300 = 400.
-    CHECK(manager.getTotalPages() == 400);
+    CHECK(manager[0]->getTitle() == "Book 1");
+    CHECK(manager[1]->getTitle() == "Book 3");
 
     // Remove invalid index
     CHECK(manager.removeItem(5) == false);
