@@ -35,6 +35,13 @@
       <FileName>week-1.cpp</FileName>
     </TypeIdentifier>
   </Class>
+  <Class Name="ContainerException" Collapsed="true">
+    <Position X="8.9" Y="0.5" Width="1.9" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>week-1.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
   <Class Name="DynamicArray&lt;T&gt;" Collapsed="true">
     <Position X="7" Y="1.75" Width="1.75" />
     <TypeIdentifier>

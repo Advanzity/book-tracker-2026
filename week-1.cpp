@@ -4,8 +4,12 @@
 #include <string>
 #include <sstream>
 #include <limits>
+#include <exception>
+#if defined(_DEBUG) && defined(_MSC_VER)
+#include <crtdbg.h>
+#endif
 #ifdef _DEBUG
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest.h"
 #endif
 
@@ -34,6 +38,21 @@ const char *difficultyToString(Difficulty d)
         return "Unknown";
     }
 }
+
+class ContainerException : public exception
+{
+private:
+    string message;
+
+public:
+    explicit ContainerException(const string &message)
+        : message(message) {}
+
+    const char *what() const noexcept override
+    {
+        return message.c_str();
+    }
+};
 
 // Function template used by manager calculations
 template <typename T>
@@ -106,7 +125,7 @@ public:
     {
         if (index < 0 || index >= count)
         {
-            return false;
+            throw ContainerException("DynamicArray removeAt index out of range.");
         }
 
         removedItem = data[index];
@@ -133,6 +152,10 @@ public:
 
     T getAt(int index) const
     {
+        if (index < 0 || index >= count)
+        {
+            throw ContainerException("DynamicArray getAt index out of range.");
+        }
         return data[index];
     }
 };
@@ -559,21 +582,14 @@ public:
     Manager &operator-=(int index)
     {
         ReadingItem *removedItem = nullptr;
-        if (items.removeAt(index, removedItem))
-        {
-            delete removedItem;
-        }
+        items.removeAt(index, removedItem);
+        delete removedItem;
         return *this;
     }
 
     ReadingItem *operator[](int index) const
     {
-        ReadingItem *item = nullptr;
-        if (items.tryGet(index, item))
-        {
-            return item;
-        }
-        return nullptr;
+        return items.getAt(index);
     }
 
     void addItem(ReadingItem *item)
@@ -583,9 +599,15 @@ public:
 
     bool removeItem(int index)
     {
-        int before = getItemCount();
-        *this -= index;
-        return getItemCount() < before;
+        try
+        {
+            *this -= index;
+            return true;
+        }
+        catch (const ContainerException &)
+        {
+            return false;
+        }
     }
 
     int getItemCount() const
@@ -759,12 +781,77 @@ public:
     }
 };
 
+#if defined(_DEBUG) && defined(_MSC_VER)
+bool runCrtManagerLeakCheck()
+{
+    _CrtMemState startState;
+    _CrtMemState endState;
+    _CrtMemState diffState;
+
+    _CrtMemCheckpoint(&startState);
+    {
+        Manager manager;
+        PriceInfo price(10.0, false);
+
+        manager.addItem(new PrintBook("CRT Print", 100, 5.0, EASY, "Author 1", price));
+        manager.addItem(new AudioBook("CRT Audio", 120, 6.0, MEDIUM, "Narrator 1", price));
+        manager.removeItem(0);
+        manager.addItem(new PrintBook("CRT Print 2", 150, 7.0, HARD, "Author 2", price));
+    }
+    _CrtMemCheckpoint(&endState);
+
+    if (_CrtMemDifference(&diffState, &startState, &endState) != 0)
+    {
+        _CrtMemDumpStatistics(&diffState);
+        _CrtMemDumpAllObjectsSince(&startState);
+        return true;
+    }
+
+    return false;
+}
+#endif
+
 #ifndef _DEBUG
 int main()
 {
     Manager manager;
     manager.run();
     return 0;
+}
+#else
+int main(int argc, char **argv)
+{
+    int result = 0;
+
+#if defined(_MSC_VER)
+    int flags = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+    flags |= _CRTDBG_ALLOC_MEM_DF;
+    flags &= ~_CRTDBG_LEAK_CHECK_DF;
+    _CrtSetDbgFlag(flags);
+
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+#endif
+
+    {
+        doctest::Context context;
+        context.applyCommandLine(argc, argv);
+        result = context.run();
+    }
+
+#if defined(_MSC_VER)
+    cerr << "\nCRT memory check: ";
+    if (runCrtManagerLeakCheck())
+    {
+        cerr << "leaks detected.\n";
+    }
+    else
+    {
+        cerr << "no leaks detected.\n";
+    }
+#endif
+
+    return result;
 }
 #endif
 
@@ -852,11 +939,11 @@ TEST_CASE("Manager operator[] valid index returns correct item")
     CHECK(manager[0] == first);
 }
 
-TEST_CASE("Manager operator[] invalid index returns nullptr")
+TEST_CASE("Manager operator[] invalid index throws")
 {
     Manager manager;
-    CHECK(manager[-1] == nullptr);
-    CHECK(manager[0] == nullptr);
+    CHECK_THROWS_AS(manager[-1], ContainerException);
+    CHECK_THROWS_AS(manager[0], ContainerException);
 }
 
 TEST_CASE("Manager operator+= adds an item pointer")
@@ -887,6 +974,16 @@ TEST_CASE("Manager operator-= removes and shifts remaining items")
     CHECK(manager.getItemCount() == 2);
     CHECK(manager[0] == first);
     CHECK(manager[1] == third);
+}
+
+TEST_CASE("Manager operator-= invalid index throws")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager += new PrintBook("Book 1", 100, 5.0, EASY, "Author 1", price);
+
+    CHECK_THROWS_AS((manager -= -1), ContainerException);
+    CHECK_THROWS_AS((manager -= 1), ContainerException);
 }
 
 TEST_CASE("Function template safeDivide works with int")
@@ -929,6 +1026,25 @@ TEST_CASE("Class template DynamicArray removes values and shifts")
     CHECK(values.getCount() == 2);
     CHECK(values.tryGet(1, shifted) == true);
     CHECK(shifted == 15);
+}
+
+TEST_CASE("Class template DynamicArray getAt throws on invalid index")
+{
+    DynamicArray<int> values(2);
+    values.add(42);
+
+    CHECK_THROWS_AS(values.getAt(-1), ContainerException);
+    CHECK_THROWS_AS(values.getAt(1), ContainerException);
+}
+
+TEST_CASE("Class template DynamicArray removeAt throws on invalid index")
+{
+    DynamicArray<int> values(2);
+    values.add(5);
+    int removed = 0;
+
+    CHECK_THROWS_AS(values.removeAt(-1, removed), ContainerException);
+    CHECK_THROWS_AS(values.removeAt(1, removed), ContainerException);
 }
 
 TEST_CASE("Polymorphism via Base Pointer")
