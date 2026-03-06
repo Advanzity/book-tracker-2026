@@ -557,6 +557,17 @@ private:
         }
     }
 
+    int countByDifficultyRecursive(Difficulty d, int index) const
+    {
+        if (index >= getItemCount())
+        {
+            return 0;
+        }
+
+        int matchesCurrent = (items.getAt(index)->getDifficulty() == d) ? 1 : 0;
+        return matchesCurrent + countByDifficultyRecursive(d, index + 1);
+    }
+
 public:
     Manager() = default;
 
@@ -647,15 +658,7 @@ public:
 
     int countByDifficulty(Difficulty d) const
     {
-        int total = 0;
-        for (int i = 0; i < getItemCount(); i++)
-        {
-            if (items.getAt(i)->getDifficulty() == d)
-            {
-                total++;
-            }
-        }
-        return total;
+        return countByDifficultyRecursive(d, 0);
     }
 
     void showBanner() const
@@ -1101,5 +1104,27 @@ TEST_CASE("Manager removes items")
 
     // Remove invalid index
     CHECK(manager.removeItem(5) == false);
+}
+
+TEST_CASE("Manager countByDifficulty returns zero for empty manager")
+{
+    Manager manager;
+    CHECK(manager.countByDifficulty(EASY) == 0);
+}
+
+TEST_CASE("Manager countByDifficulty counts matching difficulty recursively")
+{
+    Manager manager;
+    PriceInfo paid(10.0, false);
+    PriceInfo freeItem(0.0, true);
+
+    manager.addItem(new PrintBook("Book 1", 100, 4.0, EASY, "Author 1", paid));
+    manager.addItem(new AudioBook("Book 2", 120, 6.0, HARD, "Narrator 2", freeItem));
+    manager.addItem(new PrintBook("Book 3", 180, 8.0, HARD, "Author 3", paid));
+    manager.addItem(new AudioBook("Book 4", 90, 3.0, MEDIUM, "Narrator 4", freeItem));
+
+    CHECK(manager.countByDifficulty(EASY) == 1);
+    CHECK(manager.countByDifficulty(MEDIUM) == 1);
+    CHECK(manager.countByDifficulty(HARD) == 2);
 }
 #endif
