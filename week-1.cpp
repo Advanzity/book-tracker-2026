@@ -1,10 +1,11 @@
-﻿#include <iostream>
+#include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <string>
 #include <sstream>
 #include <limits>
 #include <exception>
+#include <vector>
 #if defined(_DEBUG) && defined(_MSC_VER)
 #include <crtdbg.h>
 #endif
@@ -64,101 +65,6 @@ T safeDivide(T numerator, T denominator)
     }
     return numerator / denominator;
 }
-
-// Class template that replaces raw dynamic array logic
-template <typename T>
-class DynamicArray
-{
-private:
-    T *data;
-    int count;
-    int capacity;
-
-    void resize()
-    {
-        int newCapacity = capacity * 2;
-        T *newData = new T[newCapacity];
-
-        for (int i = 0; i < count; i++)
-        {
-            newData[i] = data[i];
-        }
-
-        delete[] data;
-        data = newData;
-        capacity = newCapacity;
-    }
-
-public:
-    DynamicArray(int initialCapacity = 2)
-        : count(0), capacity(initialCapacity > 0 ? initialCapacity : 2)
-    {
-        data = new T[capacity];
-    }
-
-    ~DynamicArray()
-    {
-        delete[] data;
-    }
-
-    int getCount() const
-    {
-        return count;
-    }
-
-    int getCapacity() const
-    {
-        return capacity;
-    }
-
-    void add(const T &item)
-    {
-        if (count == capacity)
-        {
-            resize();
-        }
-        data[count] = item;
-        count++;
-    }
-
-    bool removeAt(int index, T &removedItem)
-    {
-        if (index < 0 || index >= count)
-        {
-            throw ContainerException("DynamicArray removeAt index out of range.");
-        }
-
-        removedItem = data[index];
-        for (int i = index; i < count - 1; i++)
-        {
-            data[i] = data[i + 1];
-        }
-
-        data[count - 1] = T();
-        count--;
-        return true;
-    }
-
-    bool tryGet(int index, T &item) const
-    {
-        if (index < 0 || index >= count)
-        {
-            return false;
-        }
-
-        item = data[index];
-        return true;
-    }
-
-    T getAt(int index) const
-    {
-        if (index < 0 || index >= count)
-        {
-            throw ContainerException("DynamicArray getAt index out of range.");
-        }
-        return data[index];
-    }
-};
 
 // Base class
 class ReadingItem
@@ -419,7 +325,7 @@ public:
 class Manager
 {
 private:
-    DynamicArray<ReadingItem *> items;
+    std::vector<ReadingItem *> items;
 
     bool isNonEmpty(const string &s) const
     {
@@ -546,7 +452,7 @@ private:
         cout << "\n--- Remove Item ---\n";
         for (int i = 0; i < getItemCount(); i++)
         {
-            cout << (i + 1) << ". " << items.getAt(i)->displayName() << "\n";
+            cout << (i + 1) << ". " << items.at(i)->displayName() << "\n";
         }
 
         int index = readChoice("Select item to remove (0 to cancel): ", 0, getItemCount());
@@ -564,7 +470,7 @@ private:
             return 0;
         }
 
-        int matchesCurrent = (items.getAt(index)->getDifficulty() == d) ? 1 : 0;
+        int matchesCurrent = (items.at(index)->getDifficulty() == d) ? 1 : 0;
         return matchesCurrent + countByDifficultyRecursive(d, index + 1);
     }
 
@@ -575,7 +481,7 @@ public:
     {
         for (int i = 0; i < getItemCount(); i++)
         {
-            delete items.getAt(i);
+            delete items.at(i);
         }
     }
 
@@ -586,21 +492,27 @@ public:
 
     Manager &operator+=(ReadingItem *item)
     {
-        items.add(item);
+        items.push_back(item);
         return *this;
     }
 
     Manager &operator-=(int index)
     {
-        ReadingItem *removedItem = nullptr;
-        items.removeAt(index, removedItem);
+        if (index < 0 || index >= items.size()) {
+            throw ContainerException("Index out of range.");
+        }
+        ReadingItem *removedItem = items.at(index);
+        items.erase(items.begin() + index);
         delete removedItem;
         return *this;
     }
 
     ReadingItem *operator[](int index) const
     {
-        return items.getAt(index);
+        if (index < 0 || index >= items.size()) {
+            throw ContainerException("Index out of range.");
+        }
+        return items.at(index);
     }
 
     void addItem(ReadingItem *item)
@@ -610,6 +522,9 @@ public:
 
     bool removeItem(int index)
     {
+        if (index < 0 || index >= items.size()) {
+            return false;
+        }
         try
         {
             *this -= index;
@@ -623,12 +538,12 @@ public:
 
     int getItemCount() const
     {
-        return items.getCount();
+        return static_cast<int>(items.size());
     }
 
     int getCapacity() const
     {
-        return items.getCapacity();
+        return static_cast<int>(items.capacity());
     }
 
     int getTotalPages() const
@@ -636,7 +551,7 @@ public:
         int totalPages = 0;
         for (int i = 0; i < getItemCount(); i++)
         {
-            totalPages += items.getAt(i)->getPages();
+            totalPages += items.at(i)->getPages();
         }
         return totalPages;
     }
@@ -646,9 +561,69 @@ public:
         double totalHours = 0.0;
         for (int i = 0; i < getItemCount(); i++)
         {
-            totalHours += items.getAt(i)->getHours();
+            totalHours += items.at(i)->getHours();
         }
         return totalHours;
+    }
+
+    // --- Search and Sort Algorithms ---
+
+    int sequentialSearchByTitle(const string& title) const
+    {
+        for (int i = 0; i < items.size(); i++)
+        {
+            if (items.at(i)->getTitle() == title)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    void sortByTitle()
+    {
+        int n = static_cast<int>(items.size());
+        bool swapped;
+        for (int i = 0; i < n - 1; i++)
+        {
+            swapped = false;
+            for (int j = 0; j < n - i - 1; j++)
+            {
+                if (items.at(j)->getTitle() > items.at(j + 1)->getTitle())
+                {
+                    ReadingItem* temp = items.at(j);
+                    items.at(j) = items.at(j + 1);
+                    items.at(j + 1) = temp;
+                    swapped = true;
+                }
+            }
+            if (!swapped)
+                break;
+        }
+    }
+
+    int binarySearchByTitle(const string& title) const
+    {
+        int low = 0;
+        int high = static_cast<int>(items.size()) - 1;
+
+        while (low <= high)
+        {
+            int mid = low + (high - low) / 2;
+            if (items.at(mid)->getTitle() == title)
+            {
+                return mid;
+            }
+            if (items.at(mid)->getTitle() < title)
+            {
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+        return -1;
     }
 
     double getAvgSpeed() const
@@ -676,7 +651,9 @@ public:
         cout << "3. Remove Item\n";
         cout << "4. View Report\n";
         cout << "5. Save Report to File\n";
-        cout << "6. Exit\n";
+        cout << "6. Sort by Title\n";
+        cout << "7. Search by Title\n";
+        cout << "8. Exit\n";
         cout << "Choice: ";
     }
 
@@ -711,8 +688,8 @@ public:
         cout << "\n--- Items ---\n";
         for (int i = 0; i < getItemCount(); i++)
         {
-            cout << "\nItem " << (i + 1) << ": " << items.getAt(i)->displayName() << "\n";
-            items.getAt(i)->print(cout);
+            cout << "\nItem " << (i + 1) << ": " << items.at(i)->displayName() << "\n";
+            items.at(i)->print(cout);
         }
     }
 
@@ -732,8 +709,8 @@ public:
 
         for (int i = 0; i < getItemCount(); i++)
         {
-            file << "Item " << (i + 1) << ": " << items.getAt(i)->displayName() << "\n";
-            items.getAt(i)->print(file);
+            file << "Item " << (i + 1) << ": " << items.at(i)->displayName() << "\n";
+            items.at(i)->print(file);
             file << "\n";
         }
 
@@ -774,13 +751,37 @@ public:
                 saveToFile();
                 break;
             case 6:
+                sortByTitle();
+                cout << "\nLibrary sorted by title.\n";
+                break;
+            case 7:
+            {
+                string title = readLine("Enter title to search: ");
+                int seqIndex = sequentialSearchByTitle(title);
+                if (seqIndex != -1) {
+                    cout << "Found via Sequential Search at index " << seqIndex << "\n";
+                } else {
+                    cout << "Not found via Sequential Search.\n";
+                }
+
+                sortByTitle();
+                int binIndex = binarySearchByTitle(title);
+                if (binIndex != -1) {
+                    cout << "Found via Binary Search at index " << binIndex
+                         << " after sorting by title.\n";
+                } else {
+                    cout << "Not found via Binary Search.\n";
+                }
+                break;
+            }
+            case 8:
                 cout << "\nHappy reading!\n\n";
                 break;
             default:
                 cout << "\nInvalid choice!\n";
             }
 
-        } while (choice != 6);
+        } while (choice != 8);
     }
 };
 
@@ -1001,54 +1002,7 @@ TEST_CASE("Function template safeDivide works with double")
     CHECK(safeDivide(5.0, 0.0) == doctest::Approx(0.0));
 }
 
-TEST_CASE("Class template DynamicArray stores values and resizes")
-{
-    DynamicArray<int> values(1);
-    values.add(10);
-    values.add(20);
 
-    int stored = 0;
-    CHECK(values.getCount() == 2);
-    CHECK(values.getCapacity() == 2);
-    CHECK(values.tryGet(1, stored) == true);
-    CHECK(stored == 20);
-}
-
-TEST_CASE("Class template DynamicArray removes values and shifts")
-{
-    DynamicArray<int> values(2);
-    values.add(5);
-    values.add(10);
-    values.add(15);
-
-    int removed = 0;
-    int shifted = 0;
-
-    CHECK(values.removeAt(1, removed) == true);
-    CHECK(removed == 10);
-    CHECK(values.getCount() == 2);
-    CHECK(values.tryGet(1, shifted) == true);
-    CHECK(shifted == 15);
-}
-
-TEST_CASE("Class template DynamicArray getAt throws on invalid index")
-{
-    DynamicArray<int> values(2);
-    values.add(42);
-
-    CHECK_THROWS_AS(values.getAt(-1), ContainerException);
-    CHECK_THROWS_AS(values.getAt(1), ContainerException);
-}
-
-TEST_CASE("Class template DynamicArray removeAt throws on invalid index")
-{
-    DynamicArray<int> values(2);
-    values.add(5);
-    int removed = 0;
-
-    CHECK_THROWS_AS(values.removeAt(-1, removed), ContainerException);
-    CHECK_THROWS_AS(values.removeAt(1, removed), ContainerException);
-}
 
 TEST_CASE("Polymorphism via Base Pointer")
 {
@@ -1063,26 +1017,26 @@ TEST_CASE("Manager initialization")
 {
     Manager manager;
     CHECK(manager.getItemCount() == 0);
-    CHECK(manager.getCapacity() == 2); // default capacity
+    CHECK(manager.getCapacity() >= manager.getItemCount());
 }
 
-TEST_CASE("Manager adds items and resizes")
+TEST_CASE("Manager adds items and vector grows as needed")
 {
     Manager manager;
     PriceInfo price(10.0, false);
+    int startingCapacity = manager.getCapacity();
 
-    // Add 2 items (fill capacity)
     manager.addItem(new PrintBook("Book 1", 100, 5.0, EASY, "Author 1", price));
     manager.addItem(new PrintBook("Book 2", 200, 10.0, MEDIUM, "Author 2", price));
 
     CHECK(manager.getItemCount() == 2);
-    CHECK(manager.getCapacity() == 2);
+    CHECK(manager.getCapacity() >= manager.getItemCount());
 
-    // Add 3rd item (trigger resize)
     manager.addItem(new PrintBook("Book 3", 300, 15.0, HARD, "Author 3", price));
 
     CHECK(manager.getItemCount() == 3);
-    CHECK(manager.getCapacity() == 4); // doubled
+    CHECK(manager.getCapacity() >= manager.getItemCount());
+    CHECK(manager.getCapacity() >= startingCapacity);
 }
 
 TEST_CASE("Manager removes items")
@@ -1126,5 +1080,57 @@ TEST_CASE("Manager countByDifficulty counts matching difficulty recursively")
     CHECK(manager.countByDifficulty(EASY) == 1);
     CHECK(manager.countByDifficulty(MEDIUM) == 1);
     CHECK(manager.countByDifficulty(HARD) == 2);
+}
+
+TEST_CASE("Manager sequentialSearchByTitle finds correct index")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager.addItem(new PrintBook("Dune", 500, 10.0, HARD, "Frank Herbert", price));
+    manager.addItem(new PrintBook("Foundation", 300, 6.0, MEDIUM, "Isaac Asimov", price));
+    
+    CHECK(manager.sequentialSearchByTitle("Dune") == 0);
+    CHECK(manager.sequentialSearchByTitle("Foundation") == 1);
+    CHECK(manager.sequentialSearchByTitle("Hobbit") == -1);
+}
+
+TEST_CASE("Manager sortByTitle orders items correctly (Bubble Sort)")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager.addItem(new PrintBook("Z", 100, 2.0, EASY, "Author Z", price));
+    manager.addItem(new PrintBook("B", 100, 2.0, EASY, "Author A", price));
+    manager.addItem(new PrintBook("G", 100, 2.0, EASY, "Author M", price));
+    
+    manager.sortByTitle();
+    
+    CHECK(manager[0]->getTitle() == "B");
+    CHECK(manager[1]->getTitle() == "G");
+    CHECK(manager[2]->getTitle() == "Z");
+}
+
+TEST_CASE("Manager binarySearchByTitle finds correct index on sorted vector")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager.addItem(new PrintBook("Mike", 100, 2.0, EASY, "Author Z", price));
+    manager.addItem(new PrintBook("Alpha", 100, 2.0, EASY, "Author A", price));
+    manager.addItem(new PrintBook("Zulu", 100, 2.0, EASY, "Author M", price));
+    manager.addItem(new PrintBook("Bravo", 100, 2.0, EASY, "Author B", price));
+    
+    manager.sortByTitle();
+    
+    CHECK(manager.binarySearchByTitle("Alpha") == 0);
+    CHECK(manager.binarySearchByTitle("Bravo") == 1);
+    CHECK(manager.binarySearchByTitle("Mike") == 2);
+    CHECK(manager.binarySearchByTitle("Zulu") == 3);
+    CHECK(manager.binarySearchByTitle("Nowhere") == -1);
+}
+
+TEST_CASE("Search algorithms return -1 on empty Manager")
+{
+    Manager manager;
+    CHECK(manager.sequentialSearchByTitle("Apple") == -1);
+    CHECK(manager.binarySearchByTitle("Apple") == -1);
 }
 #endif
