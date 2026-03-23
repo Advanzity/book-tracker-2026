@@ -42,6 +42,27 @@
       <FileName>week-1.cpp</FileName>
     </TypeIdentifier>
   </Class>
+  <Class Name="ReadingItemNode" Collapsed="true">
+    <Position X="5.25" Y="2.75" Width="2" />
+    <TypeIdentifier>
+      <HashCode>IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAABA=</HashCode>
+      <FileName>week-1.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ReadingItemList" Collapsed="true">
+    <Position X="7.5" Y="2.75" Width="2" />
+    <TypeIdentifier>
+      <HashCode>gAAABgAAQAAAAAAEAAiAgQQgAAEABAAAAAAgAgAAwAA=</HashCode>
+      <FileName>week-1.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ReadingItemListIterator" Collapsed="true">
+    <Position X="9.75" Y="2.75" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>AAABAAAAQAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAQAA=</HashCode>
+      <FileName>week-1.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
 
   <Enum Name="Difficulty" Collapsed="true">
     <Position X="5.25" Y="1.75" Width="1.5" />
