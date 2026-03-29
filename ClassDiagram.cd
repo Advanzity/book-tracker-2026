@@ -1,74 +1,73 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <ClassDiagram MajorVersion="1" MinorVersion="1">
   <Class Name="ReadingItem" Collapsed="true">
     <Position X="1.75" Y="0.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAQAIBABQjAABVAAAAAAAAAgABAAAQAAAAgAAABAAAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\models\reading_item.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="PriceInfo" Collapsed="true">
     <Position X="7.25" Y="1" Width="1.5" />
     <TypeIdentifier>
       <HashCode>ABAAAAEAAAAAAAAAAAAgAACCABAQAAAAAAAEAAgAAAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\models\price_info.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="PrintBook" Collapsed="true">
     <Position X="0.5" Y="1.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAQBAAAAABAAAAAAAAAAAZAgAAAAIAAAAgABAAAAAAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\models\print_book.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="AudioBook" Collapsed="true">
     <Position X="2.75" Y="1.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAQhAAAAABAAAAAAAAAEARAgAAACAIAAAAAAAAAAAAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\models\audio_book.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="Manager" Collapsed="true">
     <Position X="5.25" Y="0.5" Width="2" />
     <TypeIdentifier>
-      <HashCode>gAEjBgAAQACAAAAEIAmBoQQgCAMABAAAAAAgAgAAwAg=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <HashCode>gEEjAgAAQACAAAAEAAmBoQRgCAMABAAAAAAgAgAAQAo=</HashCode>
+      <FileName>include\app\manager.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ContainerException" Collapsed="true">
     <Position X="9" Y="0.5" Width="2" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAQAACA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\common\container_exception.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ReadingItemNode" Collapsed="true">
-    <Position X="5.25" Y="2.75" Width="2" />
+    <Position X="5" Y="2.75" Width="2" />
     <TypeIdentifier>
       <HashCode>IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAABA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\structures\reading_item_list.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ReadingItemList" Collapsed="true">
     <Position X="7.5" Y="2.75" Width="2" />
     <TypeIdentifier>
-      <HashCode>gAAABgAAQAAAAAAEAAiAgQQgAAEABAAAAAAgAgAAwAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <HashCode>gEABAAAAgAAAAAEADIAAAwBQAAAAAAAQgAAgACACQgA=</HashCode>
+      <FileName>include\structures\reading_item_list.h</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ReadingItemListIterator" Collapsed="true">
     <Position X="9.75" Y="2.75" Width="2.25" />
     <TypeIdentifier>
-      <HashCode>AAABAAAAQAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAQAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <HashCode>AAAQAAAAAAAACgAAAAAAAAAAgAAAAAAAAAAAAAIAAAA=</HashCode>
+      <FileName>include\structures\reading_item_list.h</FileName>
     </TypeIdentifier>
   </Class>
-
   <Enum Name="Difficulty" Collapsed="true">
     <Position X="5.25" Y="1.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAIAAgAAAAAAAAAAAAAAAAAAAAAAAAAQAA=</HashCode>
-      <FileName>week-1.cpp</FileName>
+      <FileName>include\common\difficulty.h</FileName>
     </TypeIdentifier>
   </Enum>
   <Font Name="Segoe UI" Size="9" />
