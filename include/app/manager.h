@@ -5,12 +5,16 @@
 #include "common/safe_divide.h"
 #include "models/audio_book.h"
 #include "models/print_book.h"
+#include "structures/queue.h"
 #include "structures/reading_item_list.h"
+#include "structures/stack.h"
 
 class Manager
 {
 private:
     ReadingItemList items;
+    Stack recentAdditions;
+    Queue removedTitles;
 
     bool isNonEmpty(const std::string &value) const;
     std::string readLine(const std::string &prompt);
@@ -46,9 +50,12 @@ public:
     double getAvgSpeed() const;
     int countByDifficulty(Difficulty difficulty) const;
 
+    std::string peekRecentAddition() const;
+    bool hasPendingRemovals() const;
+
     void showBanner() const;
     void showMenu() const;
-    void showReport() const;
+    void showReport();
     void saveToFile() const;
     void run();
 };
