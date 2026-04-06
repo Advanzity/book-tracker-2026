@@ -139,10 +139,13 @@
     <ClCompile Include="src\models\price_info.cpp" />
     <ClCompile Include="src\models\print_book.cpp" />
     <ClCompile Include="src\models\reading_item.cpp" />
+    <ClCompile Include="src\structures\queue.cpp" />
     <ClCompile Include="src\structures\reading_item_list.cpp" />
+    <ClCompile Include="src\structures\stack.cpp" />
     <ClCompile Include="tests\linked_list_tests.cpp" />
     <ClCompile Include="tests\manager_tests.cpp" />
     <ClCompile Include="tests\reading_item_tests.cpp" />
+    <ClCompile Include="tests\stack_queue_tests.cpp" />
     <ClCompile Include="tests\test_main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -155,7 +158,9 @@
     <ClInclude Include="include\models\price_info.h" />
     <ClInclude Include="include\models\print_book.h" />
     <ClInclude Include="include\models\reading_item.h" />
+    <ClInclude Include="include\structures\queue.h" />
     <ClInclude Include="include\structures\reading_item_list.h" />
+    <ClInclude Include="include\structures\stack.h" />
     <ClInclude Include="tests\support\test_headers.h" />
   </ItemGroup>
   <ItemGroup>

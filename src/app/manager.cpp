@@ -159,7 +159,7 @@ Manager &Manager::operator+=(ReadingItem *item)
 
 Manager &Manager::operator-=(int index)
 {
-    if (!items.removeAt(index))
+    if (!removeItem(index))
     {
         throw ContainerException("Index out of range.");
     }
@@ -180,11 +180,27 @@ ReadingItem *Manager::operator[](int index) const
 void Manager::addItem(ReadingItem *item)
 {
     *this += item;
+    if (!recentAdditions.isFull())
+    {
+        recentAdditions.push(item->getTitle());
+    }
 }
 
 bool Manager::removeItem(int index)
 {
-    return items.removeAt(index);
+    if (index < 0 || index >= getItemCount())
+    {
+        return false;
+    }
+
+    std::string title = (*this)[index]->getTitle();
+    bool removed = items.removeAt(index);
+    if (removed)
+    {
+        removedTitles.enqueue(title);
+    }
+
+    return removed;
 }
 
 int Manager::getItemCount() const
@@ -248,6 +264,21 @@ int Manager::countByDifficulty(Difficulty difficulty) const
     return matches;
 }
 
+std::string Manager::peekRecentAddition() const
+{
+    if (recentAdditions.isEmpty())
+    {
+        return std::string();
+    }
+
+    return recentAdditions.peek();
+}
+
+bool Manager::hasPendingRemovals() const
+{
+    return !removedTitles.isEmpty();
+}
+
 void Manager::showBanner() const
 {
     std::cout << "\n================================\n";
@@ -269,41 +300,57 @@ void Manager::showMenu() const
     std::cout << "Choice: ";
 }
 
-void Manager::showReport() const
+void Manager::showReport()
 {
     if (isEmpty())
     {
         std::cout << "\nNo items yet!\n";
-        return;
+    }
+    else
+    {
+        std::cout << "\n--- Reading Report ---\n";
+        std::cout << "Total items: " << getItemCount() << "\n";
+        std::cout << "Storage: unordered linked list\n";
+
+        double totalHours = getTotalHours();
+        double avgSpeed = getAvgSpeed();
+
+        std::cout << std::fixed << std::setprecision(1);
+        std::cout << "Total hours: " << totalHours << "\n";
+        std::cout << "Avg speed: " << avgSpeed << " pages/hour\n";
+
+        int hardCount = countByDifficulty(HARD);
+        if (hardCount > 0 && totalHours >= 10.0)
+        {
+            std::cout << "Nice, reading hard books!\n";
+        }
+        else if (hardCount == 0 && getItemCount() >= 2)
+        {
+            std::cout << "Try a harder book next!\n";
+        }
+
+        std::cout << "\n--- Items ---\n";
+        int itemNumber = 1;
+        for (ReadingItemListIterator it = items.begin(); it.isValid(); it.next(), itemNumber++)
+        {
+            std::cout << "\nItem " << itemNumber << ": " << it.getData()->displayName() << "\n";
+            it.getData()->print(std::cout);
+        }
     }
 
-    std::cout << "\n--- Reading Report ---\n";
-    std::cout << "Total items: " << getItemCount() << "\n";
-    std::cout << "Storage: unordered linked list\n";
-
-    double totalHours = getTotalHours();
-    double avgSpeed = getAvgSpeed();
-
-    std::cout << std::fixed << std::setprecision(1);
-    std::cout << "Total hours: " << totalHours << "\n";
-    std::cout << "Avg speed: " << avgSpeed << " pages/hour\n";
-
-    int hardCount = countByDifficulty(HARD);
-    if (hardCount > 0 && totalHours >= 10.0)
+    if (!recentAdditions.isEmpty())
     {
-        std::cout << "Nice, reading hard books!\n";
-    }
-    else if (hardCount == 0 && getItemCount() >= 2)
-    {
-        std::cout << "Try a harder book next!\n";
+        std::cout << "\nMost recent addition: " << recentAdditions.peek() << "\n";
     }
 
-    std::cout << "\n--- Items ---\n";
-    int itemNumber = 1;
-    for (ReadingItemListIterator it = items.begin(); it.isValid(); it.next(), itemNumber++)
+    if (!removedTitles.isEmpty())
     {
-        std::cout << "\nItem " << itemNumber << ": " << it.getData()->displayName() << "\n";
-        it.getData()->print(std::cout);
+        std::cout << "\n--- Removed since last report (oldest first) ---\n";
+        while (!removedTitles.isEmpty())
+        {
+            std::cout << "  " << removedTitles.front() << "\n";
+            removedTitles.dequeue();
+        }
     }
 }
 
