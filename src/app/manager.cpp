@@ -154,6 +154,7 @@ bool Manager::isEmpty() const
 Manager &Manager::operator+=(ReadingItem *item)
 {
     items.insertBack(item);
+    difficultyCounts[item->getDifficulty()]++;
     return *this;
 }
 
@@ -193,11 +194,21 @@ bool Manager::removeItem(int index)
         return false;
     }
 
-    std::string title = (*this)[index]->getTitle();
+    ReadingItem *target = (*this)[index];
+    std::string title = target->getTitle();
+    const Difficulty difficulty = target->getDifficulty();
     bool removed = items.removeAt(index);
     if (removed)
     {
         removedTitles.enqueue(title);
+        auto countIt = difficultyCounts.find(difficulty);
+        if (countIt != difficultyCounts.end())
+        {
+            if (--countIt->second <= 0)
+            {
+                difficultyCounts.erase(countIt);
+            }
+        }
     }
 
     return removed;
@@ -252,16 +263,18 @@ double Manager::getAvgSpeed() const
 
 int Manager::countByDifficulty(Difficulty difficulty) const
 {
-    int matches = 0;
-    for (ReadingItemListIterator it = items.begin(); it.isValid(); it.next())
+    auto it = difficultyCounts.find(difficulty);
+    if (it == difficultyCounts.end())
     {
-        if (it.getData()->getDifficulty() == difficulty)
-        {
-            matches++;
-        }
+        return 0;
     }
 
-    return matches;
+    return it->second;
+}
+
+int Manager::getDistinctDifficultyLevelCount() const
+{
+    return static_cast<int>(difficultyCounts.size());
 }
 
 std::string Manager::peekRecentAddition() const
@@ -311,6 +324,15 @@ void Manager::showReport()
         std::cout << "\n--- Reading Report ---\n";
         std::cout << "Total items: " << getItemCount() << "\n";
         std::cout << "Storage: unordered linked list\n";
+
+        if (!difficultyCounts.empty())
+        {
+            std::cout << "\n--- Difficulty counts (std::map) ---\n";
+            for (const auto &entry : difficultyCounts)
+            {
+                std::cout << "  " << difficultyToString(entry.first) << ": " << entry.second << "\n";
+            }
+        }
 
         double totalHours = getTotalHours();
         double avgSpeed = getAvgSpeed();

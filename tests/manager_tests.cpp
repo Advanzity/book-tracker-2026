@@ -174,4 +174,51 @@ TEST_CASE("Search algorithms return -1 on empty Manager")
     CHECK(manager.sequentialSearchByTitle("Apple") == -1);
     CHECK(manager.binarySearchByTitle("Apple") == -1);
 }
+
+TEST_CASE("Manager difficulty map: empty manager has no counts and lookup misses return zero")
+{
+    Manager manager;
+    CHECK(manager.getDistinctDifficultyLevelCount() == 0);
+    CHECK(manager.countByDifficulty(EASY) == 0);
+    CHECK(manager.countByDifficulty(MEDIUM) == 0);
+    CHECK(manager.countByDifficulty(HARD) == 0);
+}
+
+TEST_CASE("Manager difficulty map: operator+= inserts into map")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager += new PrintBook("A", 100, 1.0, EASY, "Auth", price);
+    manager += new PrintBook("B", 100, 1.0, HARD, "Auth", price);
+
+    CHECK(manager.getDistinctDifficultyLevelCount() == 2);
+    CHECK(manager.countByDifficulty(EASY) == 1);
+    CHECK(manager.countByDifficulty(HARD) == 1);
+    CHECK(manager.countByDifficulty(MEDIUM) == 0);
+}
+
+TEST_CASE("Manager difficulty map: removeItem erases key when last item of that difficulty is removed")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager.addItem(new PrintBook("OnlyHard", 100, 1.0, HARD, "Auth", price));
+
+    CHECK(manager.countByDifficulty(HARD) == 1);
+    CHECK(manager.getDistinctDifficultyLevelCount() == 1);
+
+    CHECK(manager.removeItem(0) == true);
+    CHECK(manager.countByDifficulty(HARD) == 0);
+    CHECK(manager.getDistinctDifficultyLevelCount() == 0);
+}
+
+TEST_CASE("Manager difficulty map: removeItem on missing index does not alter counts")
+{
+    Manager manager;
+    PriceInfo price(10.0, false);
+    manager.addItem(new PrintBook("E", 100, 1.0, EASY, "Auth", price));
+
+    CHECK(manager.removeItem(5) == false);
+    CHECK(manager.countByDifficulty(EASY) == 1);
+    CHECK(manager.getDistinctDifficultyLevelCount() == 1);
+}
 #endif

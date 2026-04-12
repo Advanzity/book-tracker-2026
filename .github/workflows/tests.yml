@@ -30,7 +30,9 @@ jobs:
         src/models/price_info.cpp
         src/models/print_book.cpp
         src/models/reading_item.cpp
+        src/structures/queue.cpp
         src/structures/reading_item_list.cpp
+        src/structures/stack.cpp
     
     - name: Run tests
       run: ./test_runner
