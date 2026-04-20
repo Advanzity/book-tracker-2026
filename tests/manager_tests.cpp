@@ -1,5 +1,7 @@
 #ifdef _DEBUG
 #include "support/test_headers.h"
+#include <cstdio>
+#include <fstream>
 
 TEST_CASE("Manager operator[] valid index returns correct item")
 {
@@ -220,5 +222,37 @@ TEST_CASE("Manager difficulty map: removeItem on missing index does not alter co
     CHECK(manager.removeItem(5) == false);
     CHECK(manager.countByDifficulty(EASY) == 1);
     CHECK(manager.getDistinctDifficultyLevelCount() == 1);
+}
+
+TEST_CASE("Manager loadItemsFromJson loads array data into existing structures")
+{
+    Manager manager;
+    CHECK(manager.loadItemsFromJson("src/app/reading_seed_data.json") == true);
+    CHECK(manager.getItemCount() == 5);
+    CHECK(manager.countByDifficulty(EASY) == 1);
+    CHECK(manager.countByDifficulty(MEDIUM) == 2);
+    CHECK(manager.countByDifficulty(HARD) == 2);
+}
+
+TEST_CASE("Manager loadItemsFromJson returns false for missing file")
+{
+    Manager manager;
+    CHECK(manager.loadItemsFromJson("src/app/does_not_exist.json") == false);
+    CHECK(manager.getItemCount() == 0);
+}
+
+TEST_CASE("Manager loadItemsFromJson returns false for malformed JSON")
+{
+    const std::string badPath = "src/app/bad_reading_seed_data.json";
+    {
+        std::ofstream badFile(badPath);
+        badFile << "[ { \"type\": \"print\", \"title\": \"Broken\" ";
+    }
+
+    Manager manager;
+    CHECK(manager.loadItemsFromJson(badPath) == false);
+    CHECK(manager.getItemCount() == 0);
+
+    std::remove(badPath.c_str());
 }
 #endif

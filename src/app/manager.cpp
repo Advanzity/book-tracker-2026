@@ -1,4 +1,5 @@
 #include "app/manager.h"
+#include "external/json.hpp"
 
 #include <fstream>
 #include <iomanip>
@@ -121,6 +122,65 @@ void Manager::addAudioBook()
 
     addItem(new AudioBook(title, pages, hours, difficulty, narrator, price));
     std::cout << "\nAudio book added!\n";
+}
+
+bool Manager::loadItemsFromJson(const std::string &filePath)
+{
+    try
+    {
+        std::ifstream file(filePath);
+        if (!file)
+        {
+            return false;
+        }
+
+        nlohmann::json jsonData;
+        file >> jsonData;
+        if (!jsonData.is_array())
+        {
+            return false;
+        }
+
+        // JSON data is converted into existing ReadingItem objects and inserted
+        // into the same linked-list/map-backed flow used by normal UI additions.
+        for (const auto &entry : jsonData)
+        {
+            const std::string type = entry.at("type").get<std::string>();
+            const std::string title = entry.at("title").get<std::string>();
+            const int pages = entry.at("pages").get<int>();
+            const double hours = entry.at("hours").get<double>();
+            const int difficultyValue = entry.at("difficulty").get<int>();
+            if (difficultyValue < EASY || difficultyValue > HARD)
+            {
+                return false;
+            }
+            const Difficulty difficulty = static_cast<Difficulty>(difficultyValue);
+            const double cost = entry.value("cost", 0.0);
+            const bool included = entry.value("included", false);
+            PriceInfo price(cost, included);
+
+            if (type == "print")
+            {
+                const std::string author = entry.at("author").get<std::string>();
+                addItem(new PrintBook(title, pages, hours, difficulty, author, price));
+            }
+            else if (type == "audio")
+            {
+                const std::string narrator = entry.at("narrator").get<std::string>();
+                addItem(new AudioBook(title, pages, hours, difficulty, narrator, price));
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
+    catch (const std::exception &)
+    {
+        return false;
+    }
+
+    return true;
 }
 
 void Manager::removeItemUI()
@@ -309,7 +369,8 @@ void Manager::showMenu() const
     std::cout << "5. Save Report to File\n";
     std::cout << "6. Sort by Title\n";
     std::cout << "7. Search by Title\n";
-    std::cout << "8. Exit\n";
+    std::cout << "8. Load Items from JSON\n";
+    std::cout << "9. Exit\n";
     std::cout << "Choice: ";
 }
 
@@ -464,10 +525,20 @@ void Manager::run()
             break;
         }
         case 8:
+            if (loadItemsFromJson("src/app/reading_seed_data.json"))
+            {
+                std::cout << "\nItems loaded from JSON.\n";
+            }
+            else
+            {
+                std::cout << "\nCould not load JSON data.\n";
+            }
+            break;
+        case 9:
             std::cout << "\nHappy reading!\n\n";
             break;
         default:
             std::cout << "\nInvalid choice!\n";
         }
-    } while (choice != 8);
+    } while (choice != 9);
 }
