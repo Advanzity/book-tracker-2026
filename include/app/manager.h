@@ -56,6 +56,7 @@ public:
 
     double getAvgSpeed() const;
     int countByDifficulty(Difficulty difficulty) const;
+    bool loadItemsFromJson(const std::string &filePath);
 
     /// Number of distinct difficulty levels that currently have at least one item (map size).
     int getDistinctDifficultyLevelCount() const;
